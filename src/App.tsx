@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, type ChangeEvent } from "react";
 
 // Confetti piece
 interface ConfettiPiece {
@@ -59,6 +59,9 @@ const PHOTO_FRAMES: PhotoFrame[] = [
   },
 ];
 
+const SONG_PATH = "/music/lagu-nabila.mp3";
+const SONG_TITLE = "Lagu spesial untuk Nabila";
+
 export default function App() {
   const [showSurprise, setShowSurprise] = useState(false);
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([]);
@@ -71,9 +74,11 @@ export default function App() {
   const [showLetter, setShowLetter] = useState(false);
   const [complimentIndex, setComplimentIndex] = useState(0);
   const [isPlayingTune, setIsPlayingTune] = useState(false);
+  const [songError, setSongError] = useState(false);
   const [customPhotos, setCustomPhotos] = useState<Record<string, string>>({});
   const [missingPhotos, setMissingPhotos] = useState<Record<string, boolean>>({});
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const NAME = "Nabila Putri Naisa";
 
@@ -204,35 +209,23 @@ export default function App() {
   };
 
   const playBirthdayTune = () => {
-    if (isPlayingTune || !window.AudioContext) return;
+    const audio = audioRef.current;
+    if (!audio) return;
 
-    const audioContext = new AudioContext();
-    const notes = [523.25, 523.25, 587.33, 523.25, 698.46, 659.25, 523.25, 523.25, 587.33, 523.25, 783.99, 698.46];
-    const now = audioContext.currentTime;
+    if (audio.paused) {
+      setSongError(false);
+      audio
+        .play()
+        .then(() => setIsPlayingTune(true))
+        .catch(() => {
+          setIsPlayingTune(false);
+          setSongError(true);
+        });
+      return;
+    }
 
-    setIsPlayingTune(true);
-    notes.forEach((frequency, index) => {
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      const start = now + index * 0.16;
-      const end = start + 0.13;
-
-      oscillator.type = "triangle";
-      oscillator.frequency.setValueAtTime(frequency, start);
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, end);
-
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-      oscillator.start(start);
-      oscillator.stop(end);
-    });
-
-    window.setTimeout(() => {
-      setIsPlayingTune(false);
-      audioContext.close();
-    }, notes.length * 170);
+    audio.pause();
+    setIsPlayingTune(false);
   };
 
   const handlePhotoUpload = (photoId: string, event: ChangeEvent<HTMLInputElement>) => {
@@ -603,7 +596,7 @@ export default function App() {
                 className="flex items-center gap-2 bg-amber-400 hover:bg-amber-500 transition text-purple-950 font-semibold px-7 py-3.5 rounded-2xl active:scale-95 shadow-lg"
               >
                 <span className="text-2xl">🎵</span>
-                <span>{isPlayingTune ? "LAGUNYA JALAN..." : "PUTAR LAGU MINI"}</span>
+                <span>{isPlayingTune ? "PAUSE LAGU" : "PUTAR LAGU MINI"}</span>
               </button>
 
               <button
@@ -613,6 +606,31 @@ export default function App() {
                 <span className="text-2xl">💌</span>
                 <span>BUKA SURAT CINTA</span>
               </button>
+            </div>
+
+            {/* Built-in song player */}
+            <div className="-mt-8 mb-12 text-center">
+              <audio
+                ref={audioRef}
+                src={SONG_PATH}
+                loop
+                onPlay={() => setIsPlayingTune(true)}
+                onPause={() => setIsPlayingTune(false)}
+                onError={() => setSongError(true)}
+                onCanPlay={() => setSongError(false)}
+              />
+
+              {songError ? (
+                <p className="mx-auto max-w-2xl rounded-2xl border border-amber-200/40 bg-amber-300/15 px-5 py-3 text-sm font-semibold text-amber-100 backdrop-blur-md">
+                  File lagu belum ditemukan. Masukkan file lagu ke <span className="font-black">public/music/lagu-nabila.mp3</span>, lalu tombol ini akan langsung memutar lagu tersebut.
+                </p>
+              ) : (
+                <div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-pink-50 shadow-lg backdrop-blur-md">
+                  <span className={isPlayingTune ? "animate-pulse" : ""}>🎧</span>
+                  <span>{SONG_TITLE}</span>
+                  <span className="text-pink-200">{isPlayingTune ? "sedang diputar" : "siap diputar dari website"}</span>
+                </div>
+              )}
             </div>
 
             {/* Meme Pop-up */}
